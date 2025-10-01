@@ -29,9 +29,25 @@ const ctx = canvas.getContext("2d");
 document.addEventListener("keydown", (event) => {
   if (event.key === "r" || event.key === "R") {
     rotate_board();
+  } else if (event.key === "a") {
+      arrow = [get_randi(0,7), get_randi(0,7), get_randi(0,7), get_randi(0,7)];
+      console.log(arrow);
   }
 });
 
+// Utility functions
+function get_randi(min, max){return Math.floor(Math.random() * (max - min + 1)) + min;}
+function gridToXY(x,y){return [x * SQUARE_DIM, (7 - y) * SQUARE_DIM];}
+function xyToGrid(x,y){return [Math.floor(x / SQUARE_DIM), 7 - Math.floor(y / SQUARE_DIM)];}
+
+function get_rotation(){
+    let style = window.getComputedStyle(canvas);
+    let matrix = new DOMMatrix(style.transform);
+
+    return Math.atan2(matrix.b, matrix.a);
+}
+
+// Rendering functions
 function draw_board() {
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
@@ -48,41 +64,62 @@ function draw_board() {
     }
 }
 
+function drawRotatedImage(image, x, y, angle) {
+  let w = image.width;
+  let h = image.height;
+
+  ctx.save();
+  ctx.translate(x + w / 2, y + h / 2);
+  ctx.rotate(angle);
+  ctx.drawImage(image, -w / 2, -h / 2);
+  ctx.restore();
+}
+
+function draw_arrow_head(x, y, angle){
+    if (angle == 0 || angle == 180){ // Vertical arrow
+        ctx.lineTo((x + .5 - ARROW_WIDTH * 2) * SQUARE_DIM, (7 - y + (angle == 180)) * SQUARE_DIM);
+        ctx.lineTo((x + .5) * SQUARE_DIM, (7.5 - y) * SQUARE_DIM);
+        ctx.lineTo((x + .5 + ARROW_WIDTH * 2) * SQUARE_DIM, (7 - y + (angle == 180)) * SQUARE_DIM);
+    }
+    else if (angle == 90 || angle == 270){ // Horisontal arrow
+        ctx.lineTo((x + (angle == 90)) * SQUARE_DIM, (7.5 - y + ARROW_WIDTH * 2) * SQUARE_DIM);
+        ctx.lineTo((x + .5) * SQUARE_DIM, (7 - y + .5) * SQUARE_DIM);
+        ctx.lineTo((x + (angle == 90)) * SQUARE_DIM, (7.5 - y - ARROW_WIDTH * 2) * SQUARE_DIM)
+    }
+}
+function draw_arrow(sx,sy,ex,ey) {
+    ctx.beginPath();
+    let horis = Math.abs(ex - sx) > Math.abs(ey - sy);
+    let turn = (ex - sx) && (ey - sy);
+    let angle;
+    if (horis){
+        if (turn){angle = ey > sy ? 180 : 0;}
+        else {angle = ex > sx ? 270 : 90;}
+    } else {
+        if (turn){angle = ex > sx ? 270 : 90;}
+        else {angle = ey > sy ? 0 : 180;}
+    }
+    ctx.moveTo((sx + .5) * SQUARE_DIM, (7 - sy + .5) * SQUARE_DIM);
+    draw_arrow_head(ex, ey, 0);
+    ctx.fillStyle = "rgba(237, 142, 0, 0.75)";
+    ctx.closePath();
+    ctx.fill();
+}
+
+// Animation functions
 function rotate_board(){
     canvas.style.transform = `translate(-50%, -50%) rotate(${BLACK_SIDE? 0: 180}deg)`
     BLACK_SIDE = !BLACK_SIDE;
 }
 
-function get_rotation(){
-    let style = window.getComputedStyle(canvas);
-    let matrix = new DOMMatrix(style.transform);
-
-    return Math.atan2(matrix.b, matrix.a);
-}
-
-function drawRotatedImage(image, x, y, angle) {
-  let w = image.width;
-  let h = image.height;
-
-  ctx.save(); // save the current state
-
-  // Move origin to the image center
-  ctx.translate(x + w / 2, y + h / 2);
-
-  // Rotate (angle in radians)
-  ctx.rotate(angle);
-
-  // Draw image, but shift back so it’s centered
-  ctx.drawImage(image, -w / 2, -h / 2);
-
-  ctx.restore(); // restore state
-}
-
+// Main render loop
+var arrow = [0,0,0,0];
 
 function render(){
     draw_board();
     let rot = get_rotation();
 
+    
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
             let b = BOARD[x + y * 8];
@@ -90,6 +127,12 @@ function render(){
             drawRotatedImage(PIECES[b], x * SQUARE_DIM, (7 - y) * SQUARE_DIM, -rot);
         }
     }
+    ctx.beginPath();
+    draw_arrow(...arrow);
+    ctx.fillStyle = "rgba(237, 142, 0, 0.75)";
+    ctx.closePath();
+    ctx.fill();
+    
     requestAnimationFrame(render);
 }
 render();
