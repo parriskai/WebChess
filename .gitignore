@@ -1,1 +1,4 @@
 host/*
+target/*
+wasm/*
+Cargo.lock

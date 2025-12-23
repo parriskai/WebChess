@@ -6,12 +6,12 @@ body{
     width: 100vw;
     height: 100vh;
     margin: 0;
-    background: radial-gradient(circle,rgba(38, 38, 38, 1) 0%, rgba(5, 5, 5, 1) 50%);
+    background: radial-gradient(circle,rgba(38, 38, 38, 1) 0%, rgba(5, 5, 5, 1) 60%);
 }
 
 #board {
     background-color: green;
-    border-radius: 8%;
+    border-radius: 40px;
     width: calc(min(90vw, 90vh));
     aspect-ratio: 1;
     position: fixed;

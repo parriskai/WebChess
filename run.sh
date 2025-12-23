@@ -1,6 +1,4 @@
-cd host || exit 1
-
-python3 -m http.server 80 &
+python3 server.py &
 SERVER=$!
 
 cleanup (){
@@ -14,7 +12,15 @@ cleanup (){
 trap cleanup INT
 
 while true; do
-    rm -rf ../host/*
-    cp -rf ../static/* .
-    sleep 1
+    clear
+    echo "Compiling"
+    cargo build --release --target wasm32-unknown-unknown
+    echo "Packing"
+    wasm-bindgen --out-dir wasm target/wasm32-unknown-unknown/release/web.wasm
+    echo "Copying Data..."
+    rm -rf host/*
+    cp -rf wasm/* host
+    cp -rf static/* host
+    echo "Done!"
+    inotifywait -r -e modify,create,delete,move chess static web
 done

@@ -1,4 +1,3 @@
-var BITBOARD = 0n;
 var BOARD = [
     0x4, 0x2, 0x3, 0x5, 0x6, 0x3, 0x2, 0x4,
     0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1, 0x1,
@@ -9,11 +8,12 @@ var BOARD = [
     0x7, 0x7, 0x7, 0x7, 0x7, 0x7, 0x7, 0x7,
     0xA, 0x8, 0x9, 0xB, 0xC, 0x9, 0x8, 0xA
 ];
-var MOUSE = { x: -1, y: -1 };
+var MOUSE = { x: -1, y: -1, gx: -1, gy: -1};
 var BLACK_SIDE = false;
 
 var PIECES = {};
 const PIECE_NUMBER = { wp: 1, wn: 2, wb: 3, wr: 4, wq: 5, wk: 6, bp: 7, bn: 8, bb: 9, br: 10, bq: 11, bk: 12 };
+
 function get_pieces() {
     "wp wn wb wr wq wk bp bn bb br bq bk".split(" ").forEach(piece => {
         let img = new Image();
@@ -42,20 +42,13 @@ canvas.onmousemove = (event) => {
     MOUSE.y =  dx * Math.sin(-angle) + dy * Math.cos(-angle) + cy;
 
     let gd = xyToGrid(MOUSE.x, MOUSE.y);
-    arrow[2] = gd[0];
-    arrow[3] = gd[1];
-    console.log(gd);
-    BITBOARD = 1n << BigInt(gd[0] + gd[1] * 8);
+    MOUSE.gx = gd[0];
+    MOUSE.gy = gd[1];
 }
 
 document.addEventListener("keydown", (event) => {
     if (event.key === "r" || event.key === "R") {
         rotate_board();
-    } else if (event.key === "a") {
-        arrow = [get_randi(0, 7), get_randi(0, 7), get_randi(0, 7), get_randi(0, 7)];
-        let horis = Math.abs(arrow[2] - arrow[0]) > Math.abs(arrow[3] - arrow[1]);
-        let turn = (arrow[2] != arrow[0]) && (arrow[3] != arrow[1]);
-        console.log([arrow, horis, turn]);
     }
 });
 
@@ -83,14 +76,7 @@ function drawCircle(x, y, radius) {
 function draw_board() {
     for (let x = 0; x < 8; x++) {
         for (let y = 0; y < 8; y++) {
-            let bb = BITBOARD & (1n << BigInt(x + y * 8));
-
             ctx.fillStyle = (x + y) % 2 ? LIGHT_COLOR : DARK_COLOR;
-
-            if (bb) {
-                ctx.fillStyle = (x + y) % 2 ? PINK_HIGHLIGHT_LIGHT_COLOR : PINK_HIGHLIGHT_DARK_COLOR;
-            }
-
             ctx.fillRect(x * SQUARE_DIM, (7 - y) * SQUARE_DIM, SQUARE_DIM, SQUARE_DIM);
         }
     }
@@ -108,38 +94,122 @@ function drawRotatedImage(image, x, y, angle) {
 }
 
 function draw_arrow_head(x, y, angle) {
+    // 0 - Top down
+    // 90 - Right to left
+    // 180 - Bottom up
+    // 270 - Left to Right
+    // Allways draws clockwise
     if (angle == 0 || angle == 180) { // Vertical arrow
-        ctx.lineTo((x + .5 - ARROW_WIDTH * 2) * SQUARE_DIM, (7 - y + (angle == 180? 1: 0)) * SQUARE_DIM);
+        ctx.lineTo((x + .5 + (angle == 180? -1: 1) * ARROW_WIDTH * 2) * SQUARE_DIM, (7 - y + (angle == 180? 1: 0)) * SQUARE_DIM);
         ctx.lineTo((x + .5) * SQUARE_DIM, (7.5 - y) * SQUARE_DIM);
-        ctx.lineTo((x + .5 + ARROW_WIDTH * 2) * SQUARE_DIM, (7 - y + (angle == 180? 1: 0)) * SQUARE_DIM);
+        ctx.lineTo((x + .5 - (angle == 180? -1: 1) * ARROW_WIDTH * 2) * SQUARE_DIM, (7 - y + (angle == 180? 1: 0)) * SQUARE_DIM);
     }
     else if (angle == 90 || angle == 270) { // Horisontal arrow
-        ctx.lineTo((x + (angle == 90? 1: 0)) * SQUARE_DIM, (7.5 - y + ARROW_WIDTH * 2) * SQUARE_DIM);
-        ctx.lineTo((x + .5) * SQUARE_DIM, (7 - y + .5) * SQUARE_DIM);
-        ctx.lineTo((x + (angle == 90? 1: 0)) * SQUARE_DIM, (7.5 - y - ARROW_WIDTH * 2) * SQUARE_DIM)
+        ctx.lineTo((x + (angle == 90? 1: 0)) * SQUARE_DIM, (7.5 - y + (angle == 90? -1: 1) * ARROW_WIDTH * 2) * SQUARE_DIM);
+        ctx.lineTo((x + .5) * SQUARE_DIM, (7.5 - y) * SQUARE_DIM);
+        ctx.lineTo((x + (angle == 90? 1: 0)) * SQUARE_DIM, (7.5 - y - (angle == 90? -1: 1) * ARROW_WIDTH * 2) * SQUARE_DIM)
+    } else if (angle == 45 || angle == 225){
+        ctx.lineTo((x + (angle == 225? 1: 0) - (angle == 225? -1: 1) * ARROW_WIDTH) * SQUARE_DIM, (7 - y + (angle == 45? 1: 0) + (angle == 45? -1: 1) * 2 * ARROW_WIDTH) * SQUARE_DIM);
+        ctx.lineTo((x + .5) * SQUARE_DIM, (7.5 - y) * SQUARE_DIM);
+        ctx.lineTo((x + (angle == 225? 1: 0) + (angle == 225? -1: 1) * 2 * ARROW_WIDTH) * SQUARE_DIM, (7 - y + (angle == 45? 1: 0) - (angle == 45? -1: 1) * ARROW_WIDTH) * SQUARE_DIM);
+    } else if (angle == 135 || angle == 315){
+        ctx.lineTo((x + (angle == 135? 1: 0) - (angle == 135? -1: 1) * ARROW_WIDTH) * SQUARE_DIM, (7 - y + (angle == 135? 1: 0) + (angle == 135? -1: 1) * 2 * ARROW_WIDTH) * SQUARE_DIM);
+        ctx.lineTo((x + .5) * SQUARE_DIM, (7.5 - y) * SQUARE_DIM);
+        ctx.lineTo((x + (angle == 135? 1: 0) + (angle == 135? -1: 1) * 2 * ARROW_WIDTH) * SQUARE_DIM, (7 - y + (angle == 135? 1: 0) - (angle == 135? -1: 1) * ARROW_WIDTH) * SQUARE_DIM);
     }
 }
-function draw_arrow(sx, sy, ex, ey) {
+
+function draw_arrow(sx, sy, ex, ey, diag=true, color = ORANGE_ARROW_COLOR){
+    let dx = ex - sx;
+    let dy = ey - sy;
+    if (dx == 0 && dy == 0){return;}
+    let horis_first = (Math.abs(dx) > Math.abs(dy));
+    let distance = Math.abs(dx) + Math.abs(dy) + (Math.PI / 2 - 1) * (dx != 0 && dy != 0) - 0.5;
+    let slope = ARROW_WIDTH / distance;
+
     ctx.beginPath();
-    let horis = Math.abs(ex - sx) > Math.abs(ey - sy);
-    let turn = (ex - sx) && (ey - sy);
-    let angle;
+    ctx.moveTo((sx + .5) * SQUARE_DIM, (7.5 - sy) * SQUARE_DIM);
+    
+    if (Math.abs(dx) == Math.abs(dy) && diag){
+        if (dx * dy > 0) {
+            ctx.lineTo((ex + (dx < 0? 1: 0)) * SQUARE_DIM, (7 - ey + (dy > 0? 1: 0) - Math.sign(dy) * ARROW_WIDTH) * SQUARE_DIM);
+            draw_arrow_head(ex, ey, (dx > 0? 45: 225));
+            ctx.lineTo((ex + (dx < 0? 1: 0) + Math.sign(dx) * ARROW_WIDTH) * SQUARE_DIM, (7 - ey + (dy > 0? 1: 0)) * SQUARE_DIM);
+        } else {
+            ctx.lineTo((ex + (dx < 0? 1: 0) + Math.sign(dx) * ARROW_WIDTH) * SQUARE_DIM, (7 - ey + (dy > 0? 1: 0)) * SQUARE_DIM);
+            draw_arrow_head(ex, ey, (dx > 0? 315: 135));
+            ctx.lineTo((ex + (dx < 0? 1: 0)) * SQUARE_DIM, (7 - ey + (dy > 0? 1: 0) - Math.sign(dy) * ARROW_WIDTH) * SQUARE_DIM);
+        }
+    } else if (horis_first) {
+        ctx.lineTo((ex + (dx > 0? 0: 1)) * SQUARE_DIM, (7.5 - sy - (dx - 0.5 * Math.sign(dx)) * slope) * SQUARE_DIM);
+        
+        if (dy) {
+            ctx.ellipse(
+                (ex + (dx > 0? 0: 1)) * SQUARE_DIM,
+                (7 - sy + (dy > 0? 0: 1)) * SQUARE_DIM, 
+                (0.5 - Math.sign(dx * dy) * (Math.abs(dx) - 0.5 + Math.PI / 2) * slope) * SQUARE_DIM,
+                (0.5 - Math.sign(dx * dy) * (Math.abs(dx) - 0.5) * slope) * SQUARE_DIM,
+                0,
+                Math.PI / 2 * Math.sign(dy),
+                Math.PI * (dx < 0),
+                -dx * dy < 0
+            );
+            ctx.lineTo((ex + 0.5 - Math.sign(dy) * ARROW_WIDTH) * SQUARE_DIM, (7 - ey + (dy > 0? 1: 0)) * SQUARE_DIM);
+            draw_arrow_head(ex, ey, (dy > 0? 180: 0));
+            ctx.lineTo((ex + 0.5 + Math.sign(dy) * ARROW_WIDTH) * SQUARE_DIM, (7 - ey + (dy > 0? 1: 0)) * SQUARE_DIM);
+            ctx.ellipse(
+                (ex + (dx > 0? 0: 1)) * SQUARE_DIM,
+                (7 - sy + (dy > 0? 0: 1)) * SQUARE_DIM, 
+                (0.5 + Math.sign(dx * dy) * (Math.abs(dx) - 0.5 + Math.PI / 2) * slope) * SQUARE_DIM,
+                (0.5 + Math.sign(dx * dy) * (Math.abs(dx) - 0.5) * slope) * SQUARE_DIM,
+                0,
+                Math.PI * (dx < 0),
+                Math.PI / 2 * Math.sign(dy),
+                dx * dy < 0
+            );
+        } else{
+            draw_arrow_head(ex, ey, (dx > 0? 270: 90));
+        }
 
-    ctx.moveTo((sx + .5) * SQUARE_DIM, (7 - sy + .5) * SQUARE_DIM);
-
-    if (horis) {
-        if (turn) { angle = ey > sy ? 180 : 0; ctx.lineTo((ex + .5) * SQUARE_DIM, (7 - sy + .5) * SQUARE_DIM);}
-        else { angle = ex > sx ? 270 : 90; }
+        ctx.lineTo((ex + (dx > 0? 0: 1)) * SQUARE_DIM, (7.5 - sy + (dx - 0.5 * Math.sign(dx)) * slope) * SQUARE_DIM);
     } else {
-        if (turn) { angle = ex > sx ? 270 : 90; ctx.lineTo((sx + .5) * SQUARE_DIM, (7 - ey + .5) * SQUARE_DIM);}
-        else { angle = ey > sy ? 180 : 0; }
+        ctx.lineTo((sx + .5 - (dy - 0.5 * Math.sign(dy)) * slope) * SQUARE_DIM, (7 - ey + (dy > 0? 1: 0)) * SQUARE_DIM);
+        
+        if (dx) {
+            ctx.ellipse(
+                (sx + (dx > 0? 1: 0)) * SQUARE_DIM,
+                (7 - ey + (dy > 0? 1: 0)) * SQUARE_DIM,
+                (0.5 - Math.sign(dx * dy) * (Math.abs(dy) - 0.5) * slope) * SQUARE_DIM,
+                (0.5 - Math.sign(dx * dy) * (Math.abs(dy) - 0.5 + Math.PI / 2) * slope) * SQUARE_DIM,
+                0,
+                Math.PI * (dx > 0),
+                -Math.PI / 2 * Math.sign(dy),
+                dx * dy < 0
+            );
+            ctx.lineTo((ex + (dx > 0? 0: 1)) * SQUARE_DIM, (7.5 - ey + Math.sign(dx) * ARROW_WIDTH) * SQUARE_DIM);
+            draw_arrow_head(ex, ey, (dx > 0? 270: 90));
+            ctx.lineTo((ex + (dx > 0? 0: 1)) * SQUARE_DIM, (7.5 - ey - Math.sign(dx) * ARROW_WIDTH) * SQUARE_DIM);
+            ctx.ellipse(
+                (sx + (dx > 0? 1: 0)) * SQUARE_DIM,
+                (7 - ey + (dy > 0? 1: 0)) * SQUARE_DIM,
+                (0.5 + Math.sign(dy * dx) * (Math.abs(dy) - 0.5) * slope) * SQUARE_DIM,
+                (0.5 + Math.sign(dy * dx) * (Math.abs(dy) - 0.5 + Math.PI / 2) * slope) * SQUARE_DIM,
+                0,
+                -Math.PI / 2 * Math.sign(dy),
+                Math.PI * (dx > 0),
+                -dx * dy < 0
+            );
+        } else{
+            draw_arrow_head(ex, ey, (dy > 0? 180: 0));
+        }
+
+        ctx.lineTo((sx + .5 + (dy - 0.5 * Math.sign(dy)) * slope) * SQUARE_DIM, (7 - ey + (dy > 0? 1: 0)) * SQUARE_DIM);
     }
-    draw_arrow_head(ex, ey, angle);
-    ctx.moveTo((sx + .5) * SQUARE_DIM, (7 - sy + .5) * SQUARE_DIM);
-    ctx.closePath();
-    ctx.strokeStyle = "rgba(237, 142, 0, 0.75)";
-    ctx.lineWidth = "20";
-    ctx.stroke();
+    ctx.lineTo((sx + .5) * SQUARE_DIM, (7.5 - sy) * SQUARE_DIM);
+    // ctx.strokeStyle = "rgba(237, 142, 0, 0.75)";
+    // ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.fill();
 }
 
 // Animation functions
@@ -149,7 +219,6 @@ function rotate_board() {
 }
 
 // Main render loop
-var arrow = [4, 4, 0, 0];
 
 function render() {
     draw_board();
@@ -163,7 +232,6 @@ function render() {
             drawRotatedImage(PIECES[b], x * SQUARE_DIM, (7 - y) * SQUARE_DIM, -rot);
         }
     }
-    draw_arrow(...arrow);
     requestAnimationFrame(render);
 }
 render();
